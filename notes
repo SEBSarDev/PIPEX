@@ -1,0 +1,58 @@
+la fonction pipe() permet de creer une communication entrre deux processus. c'est la fonction qui va nous permettre de realiser une imitation du pipe | shell : qui sert a communiquer le resultat d'une commande a la commande suivante
+donc ce qui va dans le stdout de la premiere commande se retrouve ensuite dans le stdin de la 2nd
+
+pour cela il faut un tableau de 2int
+
+int fd[2]
+
+que l'on va passer a la commande pipe() :
+pipe(fd)
+
+ce tableau va ainsi devenir un tuyau de communication entre deux processus car les deux commande se trouvent dans deux processus differents. pour ce faire les deux int vont en faite devenir des descripteur de fichier, l'un apparetenant au processus pere, et l'autre au fils.
+libre a nous ensuite de lier ces deux descripteur de fichier aux sorties et entree des processus souhaite. pour imiter une commande pipe | on liera le fd[1] (fd d'ecriture) au stdoutdu parent  et le fd[0] (fd de lecture) au stdin du fils;
+
+*(liaison se fait grace a dup2)
+**(pour creer un processus enfant depuis le processus courant, utiliser la fonction fotk() )
+
+usage pour un pipe:
+void	continue_parent(t_pipex *all, int *tube, char **envp, int pid)
+{
+	int	status;
+
+	close(tube[0]);
+	if (dup2(tube[1], 1) < 0)
+		ft_error(all, strerror(errno), NULL);
+	redir_in(all);
+	launch_exec(all, envp, all->cmd1);
+	close(1);
+	waitpid(pid, &status, 0);
+	if (WIFEXITED(status))
+	{
+		my_exit(all, WEXITSTATUS(status));
+	}
+	if (WIFSIGNALED(status))
+		my_exit(all, WTERMSIG(status) + 128);
+}
+
+void	execute(t_pipex *all, char **envp)
+{
+	pid_t	pid;
+	int		tube[2];
+	int		status;
+
+	pipe(tube);
+	pid = fork();
+	if (pid == -1)
+		ft_error(all, strerror(errno), NULL);
+	if (pid == 0)
+	{	
+		close(tube[1]);
+		if (dup2(tube[0], 0) < 0)
+			ft_error(all, strerror(errno), NULL);
+		redir_out(all);
+		launch_exec(all, envp, all->cmd2);
+		close(tube[0]);
+	}
+	else
+		continue_parent(all, tube, envp, pid);
+}
